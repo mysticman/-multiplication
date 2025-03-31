@@ -1,2 +1,2 @@
-# -multiplication
- multiplication
+# Szorzótábla gyakorlás szorzás és osztás segítségével és 
+ 
