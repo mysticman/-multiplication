@@ -29,6 +29,13 @@
             color: #333;
             display: none; /* Kezdetben rejtve */
         }
+        .num1, .num2, .operator {
+            opacity: 0;
+            display: inline-block;
+        }
+        .operator{
+            margin: 0 15px;
+        }
         hr {
             margin: 20px 0;
             border: 0;
@@ -47,7 +54,7 @@
         }
         #answer::placeholder {
             color: #999;
-            font-size: 48px;
+            font-size: 30px;
         }
         #result {
             margin-top: 20px;
@@ -148,14 +155,18 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
         #evaluation-title {
             font-size: 36px;
             font-weight: bold;
             margin-bottom: 20px;
         }
-        .success { color: #28a745; } /* Zöld */
-        .almost { color: #ff9800; } /* Narancssárga */
-        .practice { color: #dc3545; } /* Piros */
+        .success { color: #28a745; }
+        .almost { color: #ff9800; }
+        .practice { color: #dc3545; }
     </style>
 </head>
 <body>
@@ -165,9 +176,9 @@
             <div class="hourglass">⏳</div>
             <div id="timeLeft">10</div>
         </div>
-        <h1 id="problem">2 × 3 = ?</h1>
+        <h1 id="problem"><span class="num1"></span><span class="operator"></span><span class="num2"></span> = ?</h1>
         <hr>
-        <input type="number" id="answer" autofocus>
+        <input type="number" id="answer" placeholder="Eredmény" autofocus>
         <div id="result"></div>
         <div id="evaluation">
             <div id="evaluation-title"></div>
@@ -196,14 +207,17 @@
     <script>
         let minNum = 1;
         let maxNum = 10;
-        let timeLimit = 3;
-        let delay = 1;
-        let taskCount = 10;
+        let timeLimit = 5;
+        let delay = 3;
+        let taskCount = 20;
         let currentTask = 0;
         let correctAnswers = 0;
-        let num1, num2, timer;
+        let num1, num2, correctAnswer, operator, timer;
 
         const problemEl = document.getElementById('problem');
+        const num1El = document.querySelector('.num1');
+        const num2El = document.querySelector('.num2');
+        const operatorEl = document.querySelector('.operator');
         const answerEl = document.getElementById('answer');
         const resultEl = document.getElementById('result');
         const evaluationEl = document.getElementById('evaluation');
@@ -215,15 +229,78 @@
         const saveBtn = document.getElementById('saveSettings');
         const startBtn = document.getElementById('start-btn');
         const timerEl = document.querySelector('.timer');
+        const hrEl = document.querySelector('hr');
+
+        // Beállítások betöltése localStorage-ból
+        function loadSettings() {
+            const savedSettings = localStorage.getItem('gameSettings');
+            if (savedSettings) {
+                const settings = JSON.parse(savedSettings);
+                minNum = settings.minNum || minNum;
+                maxNum = settings.maxNum || maxNum;
+                timeLimit = settings.timeLimit || timeLimit;
+                delay = settings.delay || delay;
+                taskCount = settings.taskCount || taskCount;
+            }
+        }
+
+        // Beállítások mentése localStorage-ba
+        function saveSettings() {
+            const settings = {
+                minNum: parseInt(document.getElementById('minNum').value),
+                maxNum: parseInt(document.getElementById('maxNum').value),
+                timeLimit: parseInt(document.getElementById('timeLimit').value),
+                delay: parseInt(document.getElementById('delay').value),
+                taskCount: parseInt(document.getElementById('taskCount').value)
+            };
+            localStorage.setItem('gameSettings', JSON.stringify(settings));
+            minNum = settings.minNum;
+            maxNum = settings.maxNum;
+            timeLimit = settings.timeLimit;
+            delay = settings.delay;
+            taskCount = settings.taskCount;
+        }
 
         function generateProblem() {
             if (currentTask >= taskCount) {
                 showEvaluation();
                 return;
             }
-            num1 = Math.floor(Math.random() * (maxNum - minNum + 1)) + minNum;
-            num2 = Math.floor(Math.random() * (maxNum - minNum + 1)) + minNum;
-            problemEl.textContent = `${num1} × ${num2} = ?`;
+
+            // 50-50% szorzás vagy osztás
+            const isMultiplication = Math.random() < 0.5;
+
+            if (isMultiplication) {
+                num1 = Math.floor(Math.random() * (maxNum - minNum + 1)) + minNum;
+                num2 = Math.floor(Math.random() * (maxNum - minNum + 1)) + minNum;
+                correctAnswer = num1 * num2;
+                operator = ' × ';
+            } else {
+                const result = Math.floor(Math.random() * (maxNum - minNum + 1)) + minNum;
+                num2 = Math.floor(Math.random() * (maxNum - minNum + 1)) + minNum;
+                num1 = result * num2;
+                correctAnswer = result;
+                operator = ' ÷ ';
+            }
+
+            num1El.textContent = num1;
+            num2El.textContent = num2;
+            operatorEl.textContent = operator;
+
+            // Animációk külön-külön
+            num1El.style.animation = 'none';
+            operatorEl.style.animation = 'none';
+            num2El.style.animation = 'none';
+            setTimeout(() => {
+                num1El.style.animation = 'fadeIn 1s forwards';
+                setTimeout(() => {
+                    operatorEl.style.animation = 'fadeIn 1s forwards';
+                    setTimeout(() => {
+                        num2El.style.animation = 'fadeIn 1s forwards';
+                    }, 1000);
+                }, 1000);
+            }, 0);
+
             answerEl.value = '';
             answerEl.style.borderColor = '#ccc';
             resultEl.textContent = '';
@@ -249,7 +326,6 @@
 
         function checkAnswer() {
             const userAnswer = parseInt(answerEl.value) || 0;
-            const correctAnswer = num1 * num2;
             if (userAnswer === correctAnswer) {
                 answerEl.style.borderColor = '#28a745';
                 resultEl.textContent = '✔ Helyes!';
@@ -269,6 +345,7 @@
             resultEl.style.display = 'none';
             evaluationEl.style.display = 'block';
             timerEl.style.display = 'none';
+            hrEl.style.display = 'none';
 
             const percentage = (correctAnswers / taskCount) * 100;
             let titleText, titleClass;
@@ -292,13 +369,13 @@
         function resetGame() {
             currentTask = 0;
             correctAnswers = 0;
-            problemEl.style.display = 'block';
-            answerEl.style.display = 'block';
-            resultEl.style.display = 'block';
+            problemEl.style.display = 'none';
+            answerEl.style.display = 'none';
+            resultEl.style.display = 'none';
             evaluationEl.style.display = 'none';
-            timerEl.style.display = 'block';
-            startBtn.style.display = 'none';
-            generateProblem();
+            timerEl.style.display = 'none';
+            hrEl.style.display = 'none';
+            startBtn.style.display = 'block';
         }
 
         function startGame() {
@@ -311,7 +388,9 @@
             generateProblem();
         }
 
-        const hrEl = document.querySelector('hr');
+        // Beállítások betöltése induláskor
+        loadSettings();
+
         startBtn.addEventListener('click', startGame);
 
         settingsBtn.addEventListener('click', () => {
@@ -324,11 +403,7 @@
         });
 
         saveBtn.addEventListener('click', () => {
-            minNum = parseInt(document.getElementById('minNum').value);
-            maxNum = parseInt(document.getElementById('maxNum').value);
-            timeLimit = parseInt(document.getElementById('timeLimit').value);
-            delay = parseInt(document.getElementById('delay').value);
-            taskCount = parseInt(document.getElementById('taskCount').value);
+            saveSettings();
             modal.style.display = 'none';
             resetGame();
         });
